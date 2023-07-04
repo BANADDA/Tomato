@@ -24,8 +24,15 @@ import EmojiList from "../elements/EmojiList";
 import EmojiSticker from "../elements/EmojiSticker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRoute } from "@react-navigation/native";
+import { ActivityIndicator } from "react-native";
+
+// Import the modules you need from Firebase
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
 
 const PlaceholderImage = require("../assets/giffy.gif");
+const image = require('../assets/bg.png');
+const storage = getStorage();
 
 const Dashboard = forwardRef(({ navigation }, ref) => {
   // Hooks
@@ -38,9 +45,7 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
   const imageRef = useRef();
   const route = useRoute();
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState(null)
-
-  // Model Prediction
+  const [results, setResults] = useState(null);
 
   // Camera and Gallery Logic
   useEffect(() => {
@@ -80,20 +85,22 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
     });
 
     try {
-      const response = await fetch("https://tomato-model-api.onrender.com/predict/", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        "https://tomato-model-api.onrender.com/predict/",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Error uploading image");
       }
 
       const data = await response.json();
-      setResults(data)
+      setResults(data);
       // Handle the response data as needed
       console.log(data);
-
 
       setIsLoading(false);
       setModalVisible(true); // Display the popup after receiving the results
@@ -118,14 +125,34 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
   const onSaveImageAsync = async () => {
     if (Platform.OS !== "web") {
       try {
-        const localUri = await captureRef(ref, {
+        const localUri = await captureRef(imageRef, {
           height: 440,
           quality: 1,
         });
-        await MediaLibrary.saveToLibraryAsync(localUri);
-        if (localUri) {
-          alert("Saved!");
-        }
+  
+        // Get a reference to the storage service
+        const storage = getStorage();
+  
+        // Create a storage reference for the image
+        const imageStorageRef = ref(storage, "images/" + Date.now() + ".jpg");
+  
+        // Create a Blob object from the local file URI
+        const response = await fetch(localUri);
+        const blob = await response.blob();
+  
+        // Upload the Blob object to Firebase Storage
+        const uploadTask = uploadBytes(imageStorageRef, blob);
+  
+        // Wait for the upload to complete
+        await uploadTask;
+        
+        // Get the download URL of the uploaded image
+        const imageUrl = await getDownloadURL(imageStorageRef);
+  
+        // Perform any additional actions with the image URL (e.g., save to Firestore)
+  
+        alert("Saved!");
+  
       } catch (e) {
         console.log(e);
       }
@@ -147,120 +174,115 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
         });
     }
   };
+  
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* <ImageBackground
-        source={require("../assets/bg2.png")}
-        style={styles.background}
-      > */}
-        <View style={styles.imageContainer}>
-          <Text style={styles.paragraph}>
-            Use Left button to open camera, or Right button open gallery
-          </Text>
-          <View ref={imageRef} collapsable={false}>
-            <ImageViewer
-              ref={imageRef}
-              placeholderImageSource={PlaceholderImage}
-              selectedImage={selectedImage}
-            />
-            {pickedEmoji !== null ? (
-              <EmojiSticker imageSize={40} stickerSource={pickedEmoji} />
-            ) : null}
-          </View>
+      <ImageBackground source={image} resizeMode="cover" style={styles.image}>
+        <View style={[styles.horizontal]}>
+          {isLoading && <ActivityIndicator size="large" color="#00ff00" />}
         </View>
-        {showAppOptions ? (
-          <View style={styles.optionsContainer}>
-            <Modal
-              animationType="fade"
-              transparent={true}
-              visible={modalVisible}
-              onRequestClose={() => {
-                Alert.alert("Closed");
-                setModalVisible(!modalVisible);
-              }}
-            >
-              <View style={styles.centeredView}>
-                <View style={styles.modalView}>
-                  <Text style={styles.baseText}>
-                    <View style={styles.titleText}>
-                      <Text style={styles.heading}>Diagnosis Results</Text>
-                    </View>
-                    <View style={styles.resultsContainer}>
+      <View style={styles.imageContainer}>
+        <Text style={styles.paragraph}>
+          Use Left button to open camera, or Right button open gallery
+        </Text>
+        <View ref={imageRef} collapsable={false}>
+          <ImageViewer
+            ref={imageRef}
+            placeholderImageSource={PlaceholderImage}
+            selectedImage={selectedImage}
+          />
+          {pickedEmoji !== null ? (
+            <EmojiSticker imageSize={40} stickerSource={pickedEmoji} />
+          ) : null}
+        </View>
+      </View>
+      {showAppOptions ? (
+          <><Modal
+            animationType="fade"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => {
+              Alert.alert("Closed");
+              setModalVisible(!modalVisible);
+            } }
+          >
+            <View style={styles.centeredView}>
+              <View style={styles.modalView}>
+                <Text style={styles.baseText}>
+                  <View style={styles.titleText}>
+                    <Text style={styles.heading}>Diagnosis Results</Text>
+                  </View>
+                  <View style={styles.resultsContainer}>
                     {results ? (
-        <View style={styles.resultItem}>
-          <Text style={styles.resultClass}>
-            Predicted Class: {results.predicted_class}
-          </Text>
-          <Text style={styles.resultScore}>
-            Confidence Score: {results.confidence_score}
-          </Text>
-        </View>
-      ) : (
-        <Text>No results to display.</Text>
-      )}
-
-                    </View>
-                  </Text>
-                  <Pressable
-                    style={[styles.button, styles.buttonClose]}
-                    onPress={() => setModalVisible(!modalVisible)}
-                  >
-                    <MaterialIcons name="close" size={38} color="white" />
-                  </Pressable>
-                </View>
+                      <View style={styles.resultItem}>
+                        <Text style={styles.resultClass}>
+                          Predicted Class: {results.predicted_class}
+                        </Text>
+                        <Text style={styles.resultScore}>
+                          Confidence Score: {results.confidence_score}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text>No results to display.</Text>
+                    )}
+                  </View>
+                </Text>
+                <Pressable
+                  style={[styles.button, styles.buttonClose]}
+                  onPress={() => setModalVisible(!modalVisible)}
+                >
+                  <MaterialIcons name="close" size={38} color="white" />
+                </Pressable>
               </View>
-            </Modal>
-            <View style={styles.optionsRow}>
+            </View>
+          </Modal><View style={styles.optionsRow}>
               <IconButton icon="refresh" label="Reset" onPress={onReset} />
               <CircleButton
                 onPress={() => {
                   uploadImage();
-                }}
-              />
+                } } />
               {/* <CircleButton
-              onPress={() => {
-                setModalVisible(true);
-              }}
-            /> */}
+      onPress={() => {
+        setModalVisible(true);
+      }}
+    /> */}
               <IconButton
                 icon="save-alt"
                 label="Save"
-                onPress={onSaveImageAsync}
-              />
-            </View>
-          </View>
-        ) : (
-          <>
-            <View style={styles.footerContainer1}>
-              <Button
-                theme="secondary"
-                label="Use Camera"
-                onPress={() =>
-                  navigation.navigate("Camera", {
-                    setDashboardImage: setSelectedImage,
-                  })
-                }
-              />
+                onPress={onSaveImageAsync} />
+            </View></>
+      ) : (
+        <>
+          <View style={styles.footerContainer1}>
+            <Button
+              theme="secondary"
+              label="Use Camera"
+              onPress={() =>
+                navigation.navigate("Camera", {
+                  setDashboardImage: setSelectedImage,
+                })
+              }
+            />
 
-              <Button
-                theme="primary"
-                label="Use Gallery"
-                onPress={pickImageAsync}
-              />
-            </View>
-            {/* <View style={styles.footerContainer}>
+            <Button
+              theme="primary"
+              label="Use Gallery"
+              onPress={pickImageAsync}
+            />
+          </View>
+          {/* <View style={styles.footerContainer}>
             <Button
               label="Use this photo"
               onPress={() => setShowAppOptions(true)}
             />
           </View> */}
-          </>
-        )}
-        <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
-          <EmojiList onSelect={setPickedEmoji} onCloseModal={onModalClose} />
-        </EmojiPicker>
-        <StatusBar style="auto" />
-      {/* </ImageBackground> */}
+        </>
+      )}
+      <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
+        <EmojiList onSelect={setPickedEmoji} onCloseModal={onModalClose} />
+      </EmojiPicker>
+      <StatusBar style="auto" />
+      </ImageBackground>
     </GestureHandlerRootView>
   );
 });
@@ -268,20 +290,31 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
 export default Dashboard;
 
 const styles = StyleSheet.create({
+  horizontal: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+  },
   background: {
     width: "100%",
     height: "100%",
   },
   container: {
     flex: 1,
-    backgroundColor: "#25292e",
-    alignItems: "center",
+    // alignItems: "center",
+    // justifyContent: "center",
+  },
+  image: {
+    flex: 1,
+    justifyContent: 'center',
   },
   imageContainer: {
     paddingTop: 58,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
+    marginBottom: "auto",
+    justifyContent: 'center',
   },
   paragraph: {
     margin: 24,
@@ -332,15 +365,21 @@ const styles = StyleSheet.create({
     flex: 1 / 3,
     alignItems: "center",
   },
-  optionsContainer: {
-    position: "absolute",
-    bottom: 80,
-  },
+  // optionsContainer: {
+  //   position: "absolute",
+  //   bottom: 80,
+  // },
   optionsRow: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "center",
-    marginLeft: "10%",
+    justifyContent: "space-evenly",
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    margin: "2%",
+    marginTop: "5%",
+    marginBottom: "22%",
+    paddingBottom: 0,
   },
   centeredView: {
     flex: 1,
@@ -393,11 +432,11 @@ const styles = StyleSheet.create({
   },
   resultClass: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white'
+    fontWeight: "bold",
+    color: "white",
   },
   resultScore: {
     fontSize: 14,
-    color: 'white'
+    color: "white",
   },
 });

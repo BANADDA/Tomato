@@ -11,8 +11,9 @@ export default function ImageViewer({ placeholderImageSource, selectedImage }) {
 
 const styles = StyleSheet.create({
   image: {
-    width: 280,
-    height: 380,
+    width: 250,
+    height: 300,
     borderRadius: 18,
+    alignSelf: 'center',
   },
 });
