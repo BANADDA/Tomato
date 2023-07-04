@@ -57,7 +57,7 @@ export default function Login({ navigation }) {
 
   return (
     <ImageBackground
-      source={require("../assets/background.png")}
+      source={require("../assets/background.jpeg")}
       style={styles.background}
     >
       <View style={styles.container}>

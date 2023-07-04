@@ -21,12 +21,12 @@ export default function Home({ navigation }) {
 
   return (
     <ImageBackground
-      source={require("../assets/background.png")}
+      source={require("../assets/background.jpeg")}
       style={styles.background}
     >
       <SafeAreaView style={styles.safeContainer}>
         <Image
-          source={require("../assets/logo.png")}
+          source={require("../assets/logo.jpg")}
           style={styles.logo}
           resizeMode="contain"
         />

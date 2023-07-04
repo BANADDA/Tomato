@@ -31,7 +31,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 
 const PlaceholderImage = require("../assets/giffy.gif");
-const image = require('../assets/bg.png');
+const image = require('../assets/bg.jpg');
 const storage = getStorage();
 
 const Dashboard = forwardRef(({ navigation }, ref) => {
@@ -86,7 +86,7 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
 
     try {
       const response = await fetch(
-        "https://tomato-model-api.onrender.com/predict/",
+        "https://tomatoapp.onrender.com/predict/",
         {
           method: "POST",
           body: formData,
