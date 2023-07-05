@@ -86,7 +86,7 @@ const Dashboard = forwardRef(({ navigation }, ref) => {
 
     try {
       const response = await fetch(
-        "https://tomatoapp.onrender.com/predict/",
+        "https://api-app-tomato.onrender.com/predict/",
         {
           method: "POST",
           body: formData,
